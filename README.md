@@ -15,8 +15,7 @@ public ref struct SomeStruct(int number = 0)
 
 public void Main()
 {
-    // using a Span<object> collection expression for  primitives,
-    // structs, or objects:
+    // using a Span<object> collection expression for  primitives, structs, or objects:
     StackCollection<int> numbers = new([1, 2, 3]);
 
     // using the Create extension method for ref structs:
@@ -24,6 +23,15 @@ public void Main()
     someStructs.Add(new(1));
     someStructs.Add(new(2));
     someStructs.Add(new(3));
+
+    // using the Create extension method with delegate:
+    var otherStructs = StackCollection.Create<SomeStruct>(capacity: 3, sc =>
+    {
+        sc.Add(new(4));
+        sc.Add(new(5));
+        sc.Add(new(6));
+        return sc;
+    });
 }
 ```
 
@@ -54,7 +62,6 @@ using StackCollection;
 
 public void Main()
 {
-    // create the collection to LINQ up
     StackCollection<int> collection = new([1, 10, 100, 1000]);
 
     foreach(var element in collection.Where(x => x < 500))
