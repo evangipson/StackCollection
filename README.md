@@ -1,8 +1,27 @@
 # StackCollection
-A stack-allocated collection that supports `ref struct` generic members.
+A very fast, dynamically-allocated collection which never leaves the stack that supports `ref struct` generic members.
 
 ## Basic Usage
-You can create a `StackCollection` by first allocating a `StackBuffer`:
+You can create a `StackCollection` of dynamic size by using the `Create` extension method:
+
+```csharp
+using StackCollection;
+
+public void Main()
+{
+    var collection = StackCollection.Create<int>(capacity: 4);
+
+    collection.Add(1);
+    collection.Add(2);
+    collection.Add(3);
+
+    var firstElement = collection[0];
+    var secondElement = collection[1];
+    var thirdElement = collection[2];
+}
+```
+
+You can also create a `StackCollection` of fixed size by manually allocating a `StackBuffer`:
 
 ```csharp
 using StackCollection;
@@ -34,8 +53,7 @@ public ref struct SomeStruct(int number = 0)
 
 public void Main()
 {
-    StackBuffer<SomeStruct> buffer = new();
-    StackCollection<SomeStruct> collection = new(ref buffer.Instance);
+    var collection = StackCollection.Create<SomeStruct>(capacity: 4);
 
     collection.Add(new(1));
     collection.Add(new(2));
@@ -54,8 +72,7 @@ using StackCollection;
 
 public void Main()
 {
-    StackBuffer<string> buffer = new();
-    StackCollection<string> collection = new(ref buffer.Instance);
+    var collection = StackCollection.Create<string>(capacity: 4);
 
     collection.Add("Hello");
     collection.Add("World");
