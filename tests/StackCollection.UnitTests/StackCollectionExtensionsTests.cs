@@ -51,4 +51,54 @@ public class StackCollectionExtensionsTests
         Assert.Equal(2, collection.Length);
         Assert.Equal(20, collection.Capacity);
     }
+
+    [Fact]
+    public void Where_ShouldFilterPrimitiveStackCollection()
+    {
+        var collection = StackCollection.Create<int>(capacity: 5);
+        collection.Add(1);
+        collection.Add(2);
+        collection.Add(3);
+        collection.Add(4);
+        collection.Add(5);
+
+        var result = collection.Where(x => x < 3);
+
+        Assert.Equal(2, result.Length);
+        Assert.Equal(2, result.Capacity);
+    }
+
+    [Fact]
+    public void Select_ShouldCreateNewPrimitiveStackCollection()
+    {
+        var collection = StackCollection.Create<int>(capacity: 5);
+        collection.Add(1);
+        collection.Add(2);
+        collection.Add(3);
+        collection.Add(4);
+        collection.Add(5);
+
+        var result = collection.Select(x => x < 3);
+
+        Assert.Equal(5, result.Length);
+        Assert.Equal(5, result.Capacity);
+    }
+
+    [Fact]
+    public void SelectWhere_ShouldCreateNewFilteredPrimitiveStackCollection()
+    {
+        var collection = StackCollection.Create<int>(capacity: 5);
+        collection.Add(1);
+        collection.Add(2);
+        collection.Add(3);
+        collection.Add(4);
+        collection.Add(5);
+
+        var result = collection.Select(x => x < 3)
+            .Where(x => x);
+
+        // TODO: why the shit isn't this working? it's has 5 elements, but should only have 2.
+        Assert.Equal(2, result.Length);
+        Assert.Equal(2, result.Capacity);
+    }
 }

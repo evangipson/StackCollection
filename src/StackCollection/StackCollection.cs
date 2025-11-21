@@ -4,19 +4,50 @@ namespace StackCollection;
 
 /// <summary>
 /// A stack-allocated <see langword="readonly"/> collection of elements.
-/// <para>
-/// Must provide <see cref="StackBuffer{T}.Instance"/> as a <see langword="ref"/>
-/// parameter when creating a <see langword="new"/> stack collection.
-/// </para>
 /// </summary>
-[method: MethodImpl(MethodImplOptions.AggressiveInlining)]
-public ref struct StackCollection<T>(ref T bufferStart, int capacity = StackCollectionConstants.DefaultBufferSize)
-    where T : allows ref struct
+public ref struct StackCollection<T> where T : allows ref struct
 {
-    private ref byte _startAddress = ref Unsafe.As<T, byte>(ref bufferStart);
-    private readonly int _capacity = capacity;
-    private int _length = 0;
     private readonly int _elementBytes = Unsafe.SizeOf<T>();
+    private ref byte _startAddress;
+    private readonly int _capacity;
+    private int _length = 0;
+
+    /// <summary>
+    /// Creates a <see langword="new"/> dynamically-sized <see cref="StackCollection{T}"/>
+    /// that holds <paramref name="capacity"/> elements.
+    /// <para>
+    /// Defaults to a capacity of <see cref="StackCollectionConstants.DefaultBufferSize"/>.
+    /// </para>
+    /// </summary>
+    /// <param name="buffer">The buffer of memory to hold the stack collection.</param>
+    /// <param name="capacity">The maximum number of elements for the stack collection.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public StackCollection(ref T buffer, int capacity = StackCollectionConstants.DefaultBufferSize)
+    {
+        _capacity = capacity;
+        _startAddress = ref Unsafe.As<T, byte>(ref buffer);
+    }
+
+    /// <summary>
+    /// Creates a <see langword="new"/> dynamically-sized <see cref="StackCollection{T}"/>
+    /// from a span of <see langword="dynamic"/> elements.
+    /// <para>
+    /// This constructor cannot be used with <see langword="ref"/> <see langword="struct"/>
+    /// elements, because <see langword="params"/> are allocated on the heap.
+    /// </para>
+    /// </summary>
+    /// <param name="span">The elements to add to the stack collection.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public StackCollection(Span<dynamic> span)
+    {
+        _capacity = span.Length;
+        _startAddress = ref Unsafe.As<object, byte>(ref span[0]);
+
+        foreach(var element in span)
+        {
+            Add((T)element);
+        }
+    }
 
     /// <summary>
     /// The amount of elements in the stack collection.
