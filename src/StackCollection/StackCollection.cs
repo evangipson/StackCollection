@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace StackCollection;
 
@@ -7,46 +8,37 @@ namespace StackCollection;
 /// </summary>
 public ref struct StackCollection<T> where T : allows ref struct
 {
-    private readonly int _elementBytes = Unsafe.SizeOf<T>();
-    private ref byte _startAddress;
-    private readonly int _capacity;
     private int _length = 0;
+    private readonly int _capacity;
+    private readonly ref byte _startAddress;
 
     /// <summary>
-    /// Creates a <see langword="new"/> dynamically-sized <see cref="StackCollection{T}"/>
-    /// that holds <paramref name="capacity"/> elements.
-    /// <para>
-    /// Defaults to a capacity of <see cref="StackCollectionConstants.DefaultBufferSize"/>.
-    /// </para>
+    /// Creates a new <see cref="StackCollection{T}"/>.
     /// </summary>
-    /// <param name="buffer">The buffer of memory to hold the stack collection.</param>
-    /// <param name="capacity">The maximum number of elements for the stack collection.</param>
+    /// <param name="startElement">The starting element to use as a reference.</param>
+    /// <param name="length">The current number of elements in the stack collection.</param>
+    /// <param name="capacity">The maximum number of elements the stack collection can hold.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StackCollection(ref T buffer, int capacity = StackCollectionConstants.DefaultBufferSize)
+    public StackCollection(ref T startElement, int length = 0, int capacity = 0)
     {
-        _capacity = capacity;
-        _startAddress = ref Unsafe.As<T, byte>(ref buffer);
+        _length = length;
+        _capacity = length >= capacity
+            ? length
+            : capacity;
+        _startAddress = ref Unsafe.As<T, byte>(ref startElement);
     }
 
     /// <summary>
-    /// Creates a <see langword="new"/> dynamically-sized <see cref="StackCollection{T}"/>
-    /// from a span of <see langword="dynamic"/> elements.
-    /// <para>
-    /// This constructor cannot be used with <see langword="ref"/> <see langword="struct"/>
-    /// elements, because <see langword="params"/> are allocated on the heap.
-    /// </para>
+    /// Creates a new, empty <see cref="StackCollection{T}"/>.
     /// </summary>
-    /// <param name="span">The elements to add to the stack collection.</param>
+    /// <param name="capacity">The maximum number of elements the stack collection can hold.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StackCollection(Span<dynamic> span)
+    public StackCollection(int capacity = 0)
     {
-        _capacity = span.Length;
-        _startAddress = ref Unsafe.As<object, byte>(ref span[0]);
+        _capacity = capacity;
 
-        foreach(var element in span)
-        {
-            Add((T)element);
-        }
+        ReadOnlySpan<byte> buffer = stackalloc byte[Unsafe.SizeOf<T>() * capacity];
+        _startAddress = ref Unsafe.AsRef(in MemoryMarshal.GetReference(buffer));
     }
 
     /// <summary>
@@ -55,19 +47,14 @@ public ref struct StackCollection<T> where T : allows ref struct
     public readonly int Length => _length;
 
     /// <summary>
-    /// The total allocated bytes of a single element in the stack collection.
-    /// </summary>
-    public readonly int ElementBytes => _elementBytes;
-
-    /// <summary>
-    /// The total allocated bytes of the stack collection.
-    /// </summary>
-    public readonly int TotalBytes => ElementBytes * Length;
-
-    /// <summary>
     /// The maximum number of elements for the stack collection.
     /// </summary>
     public readonly int Capacity => _capacity;
+
+    /// <summary>
+    /// A reference to the first element of the stack collection.
+    /// </summary>
+    public readonly ref T First => ref Unsafe.As<byte, T>(ref _startAddress);
 
     /// <summary>
     /// Adds an element to the stack collection.
@@ -78,18 +65,15 @@ public ref struct StackCollection<T> where T : allows ref struct
     /// </summary>
     /// <param name="item">The element to add to the stack collection.</param>
     /// <exception cref="IndexOutOfRangeException"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Add(T item)
     {
-        // throw if the length will equal or exceed capacity.
         if (_length >= _capacity)
         {
             throw new IndexOutOfRangeException("Unable to add an element to the stack collection because the buffer is full.");
         }
 
-        // calculate offset based on the SAFE, contiguous starting point
-        ref T start = ref Unsafe.As<byte, T>(ref _startAddress);
-        ref T slot = ref Unsafe.Add(ref start, _length);
-
+        ref T slot = ref Unsafe.Add(ref First, (nint)(uint)_length);
         slot = item;
         _length++;
     }
@@ -104,20 +88,16 @@ public ref struct StackCollection<T> where T : allows ref struct
     /// <param name="index">The index of the desired element.</param>
     /// <returns>The stack collection element.</returns>
     /// <exception cref="IndexOutOfRangeException"/>
-    public ref T this[int index]
+    public ref readonly T this[int index]
     {
         get
         {
-            if ((uint)index >= (uint)_length)
+            if (index >= _capacity)
             {
                 throw new IndexOutOfRangeException($"Unable to index {index} element of {Length} for the stack collection.");
             }
 
-            // get the start of the contiguous buffer
-            ref T start = ref Unsafe.As<byte, T>(ref _startAddress);
-
-            // increment the pointer of the buffer and return it
-            return ref Unsafe.Add(ref start, index);
+            return ref Unsafe.Add(ref First, (nint)(uint)index);
         }
     }
 
@@ -125,7 +105,8 @@ public ref struct StackCollection<T> where T : allows ref struct
     /// Gets an enumerator for the stack collection.
     /// </summary>
     /// <returns>A stack collection enumerator.</returns>
-    public Enumerator GetEnumerator() => new(ref _startAddress, _length);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly Enumerator GetEnumerator() => new(ref _startAddress, _length);
 
     /// <summary>
     /// An enumerator for a stack collection.

@@ -5,18 +5,32 @@ public class StackCollectionTests
     [Fact]
     public void StackCollection_ShouldCreateEmptyStackCollection()
     {
-        StackCollection<int> collection = new();
+        StackCollection<int> collection = new(capacity: 0);
 
         Assert.Equal(0, collection.Length);
         Assert.Equal(0, collection.Capacity);
-        Assert.Equal(0, collection.ElementBytes);
-        Assert.Equal(0, collection.TotalBytes);
+    }
+
+    [Fact]
+    public void StackCollection_ShouldThrowIndexOutOfRangeException_WhenAddingBeyondCapacity()
+    {
+        Assert.Throws<IndexOutOfRangeException>(() => new StackCollection<int>().Add(1));
+    }
+
+    [Fact]
+    public void StackCollection_ShouldThrowIndexOutOfRangeException_WhenIndexingOutOfRange()
+    {
+        Assert.Throws<IndexOutOfRangeException>(() => new StackCollection<int>()[1]);
     }
 
     [Fact]
     public void StackCollection_ShouldCreateFromPrimitiveParams()
     {
-        StackCollection<int> collection = new([1, 2, 3]);
+        var first = 1;
+        StackCollection<int> collection = new(ref first, capacity: 3);
+        collection.Add(1);
+        collection.Add(2);
+        collection.Add(3);
 
         Assert.Equal(3, collection.Length);
         Assert.Equal(3, collection.Capacity);
@@ -30,12 +44,41 @@ public class StackCollectionTests
     {
         var now = DateTime.UtcNow;
         var yesterday = now.AddDays(-1);
-
-        StackCollection<DateTime> collection = new([now, yesterday]);
+        StackCollection<DateTime> collection = new(ref now, capacity: 2);
+        collection.Add(now);
+        collection.Add(yesterday);
 
         Assert.Equal(2, collection.Length);
         Assert.Equal(2, collection.Capacity);
         Assert.Equal(now, collection[0]);
         Assert.Equal(yesterday, collection[1]);
+    }
+
+    [Fact]
+    public void StackCollection_ShouldCreateSingleElementCollection_UsingRefStruct()
+    {
+        SomeStruct first = new(1);
+        StackCollection<SomeStruct> collection = new(ref first, capacity: 1);
+        collection.Add(new(1));
+
+        Assert.Equal(1, collection.Length);
+        Assert.Equal(1, collection.Capacity);
+        Assert.Equal(1, collection[0].Number);
+    }
+
+    [Fact]
+    public void StackCollection_ShouldCreateMultipleElementCollection_UsingRefStruct()
+    {
+        SomeStruct first = new(1);
+        StackCollection<SomeStruct> collection = new(ref first, capacity: 3);
+        collection.Add(new(1));
+        collection.Add(new(2));
+        collection.Add(new(3));
+
+        Assert.Equal(3, collection.Length);
+        Assert.Equal(3, collection.Capacity);
+        Assert.Equal(1, collection[0].Number);
+        Assert.Equal(2, collection[1].Number);
+        Assert.Equal(3, collection[2].Number);
     }
 }

@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/StackCollection.Benchmarks/StackCollection.Benchmarks.csproj" Id="b434eb5f-7d8d-4467-90cc-ccbd46e38684" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/StackCollection/StackCollection.csproj" />
   </Folder>
