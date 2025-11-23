@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace StackCollection;
@@ -6,39 +7,46 @@ namespace StackCollection;
 /// <summary>
 /// A stack-allocated <see langword="readonly"/> collection of elements.
 /// </summary>
+[DebuggerDisplay("{ToString(),raw}")]
+[DebuggerTypeProxy(typeof(StackCollectionDebugView<>))]
 public ref struct StackCollection<T> where T : allows ref struct
 {
-    private int _length = 0;
-    private readonly int _capacity;
+    private int _length;
+    private int _capacity;
     private readonly ref byte _startAddress;
 
     /// <summary>
-    /// Creates a new <see cref="StackCollection{T}"/>.
+    /// Creates a new empty <see cref="StackCollection{T}"/> with no capacity.
+    /// <para>
+    /// Serves as <see langword="default"/>, and more than likely not the desired behavior.
+    /// </para>
     /// </summary>
-    /// <param name="startElement">The starting element to use as a reference.</param>
-    /// <param name="length">The current number of elements in the stack collection.</param>
-    /// <param name="capacity">The maximum number of elements the stack collection can hold.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StackCollection(ref T startElement, int length = 0, int capacity = 0)
+    public StackCollection()
     {
-        _length = length;
-        _capacity = length >= capacity
-            ? length
-            : capacity;
-        _startAddress = ref Unsafe.As<T, byte>(ref startElement);
+        _length = 0;
+        _capacity = 0;
+        _startAddress = ref Unsafe.NullRef<byte>();
     }
 
     /// <summary>
-    /// Creates a new, empty <see cref="StackCollection{T}"/>.
+    /// Creates a new <see cref="StackCollection{T}"/> using the provided <paramref name="reference"/>
+    /// to guarantee no heap allocation.
     /// </summary>
+    /// <param name="reference">The starting element to use as a reference.</param>
     /// <param name="capacity">The maximum number of elements the stack collection can hold.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public StackCollection(int capacity = 0)
+    public StackCollection(ref T reference, int capacity = 0, int length = 0)
     {
-        _capacity = capacity;
+        if (length == 0 && capacity == 0)
+        {
+            this = default;
+            return;
+        }
 
-        ReadOnlySpan<byte> buffer = stackalloc byte[Unsafe.SizeOf<T>() * capacity];
-        _startAddress = ref Unsafe.AsRef(in MemoryMarshal.GetReference(buffer));
+        _length = length;
+        _capacity = length > capacity ? length : capacity;
+        _startAddress = ref Unsafe.As<T, byte>(ref reference);
     }
 
     /// <summary>
@@ -88,7 +96,7 @@ public ref struct StackCollection<T> where T : allows ref struct
     /// <param name="index">The index of the desired element.</param>
     /// <returns>The stack collection element.</returns>
     /// <exception cref="IndexOutOfRangeException"/>
-    public ref readonly T this[int index]
+    public ref T this[int index]
     {
         get
         {
@@ -99,6 +107,68 @@ public ref struct StackCollection<T> where T : allows ref struct
 
             return ref Unsafe.Add(ref First, (nint)(uint)index);
         }
+    }
+
+    /// <summary>
+    /// Trims the stack collection <see cref="Capacity"/> to match the <see cref="Length"/>.
+    /// </summary>
+    public void Trim() => _capacity = _length;
+
+    /// <summary>
+    /// Sets the <see cref="Length"/> to <c>0</c>, so the next <see cref="Add(T)"/> will
+    /// overwrite the first element.
+    /// </summary>
+    public void Clear()
+    {
+        // zero out memory by using Span<byte>, which is safe even if T is a ref struct
+        ref byte startByte = ref _startAddress;
+        int totalBytesToClear = _length * Unsafe.SizeOf<T>();
+
+        // the cast to Span<T> is restricted, but Span<byte> is not
+        Span<byte> activeBytes = MemoryMarshal.CreateSpan(ref startByte, totalBytesToClear);
+        activeBytes.Clear();
+
+        // reset the length
+        _length = 0;
+    }
+
+    /// <summary>
+    /// Copies the active elements of the current collection to the destination collection.
+    /// <para>
+    /// Will <see langword="throw"/> an <see cref="InvalidOperationException"/> if the destination capacity is insufficient
+    /// or the destination buffer is uninitialized.
+    /// </para>
+    /// </summary>
+    /// <param name="destination">The destination stack collection to copy elements into, which has it's length updated.</param>
+    /// <exception cref="InvalidOperationException"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void CopyTo(ref StackCollection<T> destination)
+    {
+        // ensure destination is empty
+        if (_length == 0)
+        {
+            destination.Clear();
+            return;
+        }
+
+        if (Unsafe.IsNullRef(ref destination._startAddress))
+        {
+            throw new InvalidOperationException("Destination collection buffer is uninitialized.");
+        }
+
+        if (destination._capacity < _length)
+        {
+            throw new InvalidOperationException($"Destination capacity ({destination._capacity}) is too small to hold the source length ({_length}).");
+        }
+
+        // calculate the total number of bytes to copy
+        int byteCount = _length * Unsafe.SizeOf<T>();
+
+        // fast, low-level memory copy (memcpy).
+        Unsafe.CopyBlock(ref Unsafe.As<T, byte>(ref destination.First), ref Unsafe.As<T, byte>(ref First), (uint)byteCount);
+
+        // update the destination's length to match the copied count
+        destination._length = _length;
     }
 
     /// <summary>

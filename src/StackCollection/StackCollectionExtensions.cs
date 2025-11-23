@@ -19,7 +19,7 @@ public static class StackCollection
         /// </summary>
         /// <returns>A <see cref="ReadOnlySpan{T}"/> of stack collection elements.</returns>
         public ReadOnlySpan<T> AsReadOnlySpan()
-            => MemoryMarshal.CreateSpan(ref stackCollection.First, stackCollection.Length);
+            => MemoryMarshal.CreateReadOnlySpan(ref stackCollection.First, stackCollection.Length);
 
         /// <summary>
         /// Gets the elements of a stack collection as a <see cref="Span{T}"/>.
@@ -39,6 +39,18 @@ public static class StackCollection
     extension<T>(StackCollection<T> stackCollection) where T : allows ref struct
     {
         /// <summary>
+        /// Creates a <see cref="StackCollection{T}"/>, intended to be used as results for a query.
+        /// </summary>
+        /// <typeparam name="T">The type of element to put in the stack collection.</typeparam>
+        /// <param name="span">The <typeparamref name="T"/> elements to put in the stack collection.</param>
+        /// <returns>
+        /// A <see langword="new"/> results <see cref="StackCollection{T}"/>.
+        /// </returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public StackCollection<T> CreateResults(ref T reference)
+            => new(ref reference, capacity: stackCollection.Capacity);
+
+        /// <summary>
         /// Checks if any element of a stack collection passes the <paramref name="predicate"/>.
         /// </summary>
         /// <param name="predicate">Returns <see langword="true"/> when the element passes.</param>
@@ -49,8 +61,8 @@ public static class StackCollection
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Any(Func<T, bool>? predicate = null)
         {
-            // if there is no predicate, there is nothing to find
-            if (predicate == null)
+            // if there is no elements in the collection or predicate, there is nothing to find
+            if (stackCollection.Length == 0 || predicate == null)
             {
                 return false;
             }
@@ -71,100 +83,152 @@ public static class StackCollection
         /// <summary>
         /// Filters a stack collection for any that return <see langword="true"/> from <paramref name="predicate"/>.
         /// </summary>
+        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
         /// <param name="predicate">Returns <see langword="true"/> when the element should be included.</param>
-        /// <returns>A <see langword="new"/> stack collection with filtered elements.</returns>
+        /// <returns>The modified <paramref name="results"/> collection.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public StackCollection<T> Where(Func<T, bool>? predicate = null)
+        public ref StackCollection<T> Where(ref StackCollection<T> results, Func<T, bool>? predicate = null)
         {
-            // if there is no predicate, there is nothing to do, return an empty collection
-            if (predicate == null)
+            // clear any results in case of fluent chaining
+            results.Clear();
+
+            // if there is no elements in the collection, no capacity for results,
+            // or no predicate, there is nothing to do
+            if (stackCollection.Length == 0 || results.Capacity == 0 || predicate == null)
             {
-                return new();
+                return ref results;
             }
 
             // iterate once and add the elements that pass the predicate
-            StackCollection<T> included = new(ref stackCollection.First, capacity: stackCollection.Capacity);
             foreach (var element in stackCollection)
             {
                 if (predicate(element))
                 {
-                    included.Add(element);
+                    results.Add(element);
                 }
             }
 
-            // if no elements passed the predicate, return an empty stack collection
-            if (included.Length == 0)
-            {
-                return new();
-            }
-
-            // iterate once more to add filtered elements now that the actual capacity is known
-            StackCollection<T> filtered = new(ref included.First, capacity: included.Length);
-            foreach (var element in included)
-            {
-                filtered.Add(element);
-            }
-
-            return filtered;
+            return ref results;
         }
 
         /// <summary>
         /// Selects elements in a stack collection using <paramref name="predicate"/>.
+        /// <para>
+        /// Returns the unmodified stack collection if <paramref name="predicate"/> is <see langword="null"/>.
+        /// </para>
         /// </summary>
+        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
         /// <param name="predicate">
         /// Returns <typeparamref name="T"/> using the incoming <typeparamref name="T"/> element.
         /// </param>
-        /// <returns>A <see langword="new"/> stack collection with selected elements.</returns>
+        /// <returns>The modified <paramref name="results"/> collection.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public StackCollection<T> Select(Func<T, T?>? predicate = null) => predicate == null
-            ? stackCollection
-            : stackCollection.Select<T, T>(predicate);
+        public ref StackCollection<T> Select(ref StackCollection<T> results, Func<T, T?>? predicate = null)
+            => ref stackCollection.Select<T, T>(ref results, predicate);
 
         /// <summary>
         /// Selects elements in a stack collection using <paramref name="predicate"/>.
         /// </summary>
         /// <typeparam name="TDest">The type of elements in the output stack collection.</typeparam>
+        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
         /// <param name="predicate">
         /// Returns <typeparamref name="TDest"/> using the incoming <typeparamref name="TSource"/> element.
         /// </param>
-        /// <returns>A <see langword="new"/> stack collection with selected elements.</returns>
+        /// <returns>The modified <paramref name="results"/> collection.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public StackCollection<TDest> Select<TDest>(Func<T, TDest?>? predicate = null) where TDest : allows ref struct
+        public ref StackCollection<TDest> Select<TDest>(ref StackCollection<TDest> results, Func<T, TDest?>? predicate = null) where TDest : allows ref struct
         {
-            // if there is no predicate there is nothing to do, return an empty stack collection
-            if (predicate == null)
+            // clear any results in case of fluent chaining
+            results.Clear();
+
+            // if there is no elements in the collection, no capacity for results,
+            // or no predicate, there is nothing to do
+            if (stackCollection.Length == 0 || results.Capacity == 0 || predicate == null)
             {
-                return new();
+                return ref results;
             }
 
-            // iterate once to create the new elements
-            StackCollection<TDest> selected = new(capacity: stackCollection.Capacity);
+            // iterate once to select the new elements
             foreach (var element in stackCollection)
             {
                 if (predicate(element) is TDest newElement)
                 {
-                    selected.Add(newElement);
+                    results.Add(newElement);
                 }
             }
 
-            // if no elements were selected return an empty stack collection
-            if (selected.Length == 0)
-            {
-                return new();
-            }
-
-            // iterate once more to add selected elements now that the actual capacity is known
-            StackCollection<TDest> filtered = new(capacity: selected.Length);
-            foreach (var element in selected)
-            {
-                filtered.Add(element);
-            }
-            return filtered;
+            return ref results;
         }
     }
 
     /// <summary>
-    /// Creates a dynamically-sized <see cref="StackCollection{T}"/>.
+    /// A <see langword="static"/> collection of methods to extend functionality of <see langword="class"/>
+    /// member stack collections.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The type of elements in the stack collection, all must be a <see langword="class"/>.
+    /// </typeparam>
+    extension<T>(StackCollection<T> stackCollection) where T : class
+    {
+        /// <summary>
+        /// Gets all the <typeparamref name="T"/> elements of a stack collection as <typeparamref name="TDest"/> elements.
+        /// <para>
+        /// All the <typeparamref name="TDest"/> elements are guaranteed to not be <see langword="null"/>.
+        /// </para>
+        /// </summary>
+        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
+        /// <returns>The modified <paramref name="results"/> collection.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref StackCollection<TDest> OfType<TDest>(ref StackCollection<TDest> results) where TDest : class
+        {
+            // clear any results in case of fluent chaining
+            results.Clear();
+
+            // if there is no elements or results capacity, there is nothing to do
+            if (stackCollection.Length == 0 || results.Capacity == 0)
+            {
+                return ref results;
+            }
+
+            // filter the collection down to non-null TDest elements
+            foreach (var element in stackCollection)
+            {
+                if (element is TDest newElement)
+                {
+                    results.Add(newElement);
+                }
+            }
+
+            return ref results;
+        }
+    }
+
+    /// <summary>
+    /// Creates a <see cref="StackCollection{T}"/> from a <see cref="ReadOnlySpan{T}"/>, intended to be
+    /// used as results for a query.
+    /// </summary>
+    /// <param name="span"><see cref="ReadOnlySpan{T}"/> containing at least one <typeparamref name="T"/>.</param>
+    /// <returns>A <see langword="new"/> results <see cref="StackCollection{T}"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static StackCollection<T> CreateResults<T>(this StackCollection<T> collection, Span<T> span)
+        => new(ref span[0], capacity: collection.Capacity);
+
+    /// <summary>
+    /// Creates a <see cref="StackCollection{T}"/> from a <see cref="ReadOnlySpan{T}"/>, intended to be
+    /// used as results for a query that will give back a different type than it's input.
+    /// </summary>
+    /// <param name="span"><see cref="ReadOnlySpan{T}"/> containing at least one <typeparamref name="T"/>.</param>
+    /// <returns>A <see langword="new"/> results <see cref="StackCollection{T}"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static StackCollection<TDest> CreateResultsOf<T, TDest>(this StackCollection<T> collection, Span<TDest> span)
+        => new(ref span[0], capacity: collection.Capacity);
+
+    /// <summary>
+    /// Creates a dynamically-sized <see cref="StackCollection{T}"/> from a <see cref="ReadOnlySpan{T}"/>.
+    /// <para>
+    /// Will not work with <see langword="ref"/> <see langword="struct"/> elements, because they cannot be
+    /// <see cref="ReadOnlySpan{T}"/> members due to generic argument constraints.
+    /// </para>
     /// </summary>
     /// <typeparam name="T">The type of element to put in the stack collection.</typeparam>
     /// <param name="span">The <typeparamref name="T"/> elements to put in the stack collection.</param>

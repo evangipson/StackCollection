@@ -1,6 +1,33 @@
 # StackCollection
 A very fast, dynamically-allocated collection which never leaves the stack that supports `ref struct` generic members.
 
+## Benchmarks
+
+### Creation
+The following benchmarks capture memory and speed information for creating a new collection with one hundred `int` elements:
+
+| Method            | Mean       | StdDev    | Allocated |
+|------------------ |-----------:|----------:|----------:|
+| `StackCollection` |  1.0008 ns | 0.0145 ns |         - |
+| `ReadOnlySpan`    |  0.0003 ns | 0.0005 ns |         - |
+| `Span`            | 13.5635 ns | 0.1860 ns |     424 B |
+| `List`            | 15.7198 ns | 0.1829 ns |     456 B |
+| `Array`           | 13.1794 ns | 0.1358 ns |     424 B |
+
+Notice that both `StackCollection` and `ReadOnlySpan` have no allocated heap size - they are purely living on the stack! The difference of course being `StackCollection` can accept `ref struct` members.
+
+### Querying
+The following benchmarks capture memory and speed information for querying a `StackCollection` and a `List` (no need to include `ReadOnlySpan` or `Span` in these benchmarks, as they don't support querying), using the same queries, over one thousand `int` elements:
+
+| Method                      | Mean     | StdDev   | Allocated |
+|---------------------------- |---------:|---------:|----------:|
+| StackCollection_SelectQuery | 424.0 ns |  2.47 ns |         - |
+| StackCollection_WhereQuery  | 469.9 ns |  1.34 ns |         - |
+| List_SelectQuery            | 456.6 ns | 15.38 ns |    8184 B |
+| List_WhereQuery             | 699.4 ns | 22.95 ns |    6184 B |
+
+Notice that `StackCollection` not only out-performs `List` for each query, it also has no allocated heap size while performing those queries.
+
 ## Basic Usage
 You can create a `StackCollection` using a collection expression:
 
@@ -90,21 +117,3 @@ public void Main()
     }
 }
 ```
-
-## Okay, but why?
-Well, stack allocation is really fast. Like, _really fast_. And I was tired of not being able to have collections with `ref struct` elements.
-
-Also, generally the concept of a collection that is guaranteed to never leave the stack interests me, and `Span<T>`/`ReadOnlySpan<T>` was not meeting my goals.
-
-## Benchmarks
-The following benchmarks capture memory and speed information for creating a new collection with one hundred `int` elements:
-
-| Method            | Mean       | StdDev    | Median     | Allocated |
-|------------------ |-----------:|----------:|-----------:|----------:|
-| `StackCollection` |  1.0008 ns | 0.0145 ns |  1.0034 ns |         - |
-| `ReadOnlySpan`    |  0.0003 ns | 0.0005 ns |  0.0000 ns |         - |
-| `Span`            | 13.5635 ns | 0.1860 ns | 13.5806 ns |     424 B |
-| `List`            | 15.7198 ns | 0.1829 ns | 15.7173 ns |     456 B |
-| `Array`           | 13.1794 ns | 0.1358 ns | 13.2120 ns |     424 B |
-
-Notice that both `StackCollection` and `ReadOnlySpan` have no allocated heap size - they are purely living on the stack! The difference of course being `StackCollection` can accept `ref struct` members.

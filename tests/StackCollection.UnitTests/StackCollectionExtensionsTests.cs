@@ -13,28 +13,6 @@ public class StackCollectionExtensionsTests
         Assert.Equal(2, collection[1]);
     }
 
-    [Fact]
-    public void Where_ShouldFilterPrimitiveStackCollection()
-    {
-        var collection = StackCollection.Create([1, 2, 3, 4, 5]);
-
-        var result = collection.Where(x => x < 3);
-
-        Assert.Equal(2, result.Length);
-        Assert.Equal(2, result.Capacity);
-    }
-
-    [Fact]
-    public void Select_ShouldCreateNewPrimitiveStackCollection()
-    {
-        var collection = StackCollection.Create([1, 2, 3, 4, 5]);
-
-        var result = collection.Select(x => x < 3);
-
-        Assert.Equal(5, result.Length);
-        Assert.Equal(5, result.Capacity);
-    }
-
     [Theory]
     [InlineData(1, true)]
     [InlineData(10, false)]
@@ -48,13 +26,41 @@ public class StackCollectionExtensionsTests
     }
 
     [Fact]
-    public void SelectWhere_ShouldCreateNewFilteredPrimitiveStackCollection()
+    public void Where_ShouldFilterPrimitiveStackCollection()
     {
         var collection = StackCollection.Create([1, 2, 3, 4, 5]);
+        var resultCollection = collection.CreateResultsOf([0]);
 
-        var result = collection.Where(x => x < 3).Select();
+        var result = collection.Where(ref resultCollection, x => x < 3);
 
         Assert.Equal(2, result.Length);
-        Assert.Equal(2, result.Capacity);
+        Assert.True(result[0] < 3);
+        Assert.True(result[1] < 3);
+    }
+
+    [Fact]
+    public void Select_ShouldCreateNewPrimitiveStackCollection()
+    {
+        var collection = StackCollection.Create([1, 2, 3, 4, 5]);
+        var selectCollection = collection.CreateResultsOf([false]);
+
+        var result = collection.Select(ref selectCollection, x => x < 3);
+
+        Assert.Equal(5, result.Length);
+    }
+
+    [Fact]
+    public void OfType_ShouldRemoveNullAndCastClassyStackCollection()
+    {
+        var collection = StackCollection.Create<SomeExtendedClass>([new(1), new(2), new(3)]);
+        var resultCollection = collection.CreateResultsOf<SomeExtendedClass, SomeClass>([new(0)]);
+
+        var result = collection.OfType(ref resultCollection);
+
+        Assert.Equal(3, result.Length);
+        Assert.Equal(3, result.Capacity);
+        Assert.Equal(1, result[0].Number);
+        Assert.Equal(2, result[1].Number);
+        Assert.Equal(3, result[2].Number);
     }
 }

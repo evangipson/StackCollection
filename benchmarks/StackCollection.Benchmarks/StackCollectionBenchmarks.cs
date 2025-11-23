@@ -5,43 +5,37 @@ namespace StackCollection.Benchmarks;
 [MemoryDiagnoser]
 public class StackCollectionBenchmarks
 {
-    private int[] _numbers = new int[100];
+    private readonly int[] _numbers = [.. Enumerable.Range(1, 1000)];
 
-    private ReadOnlySpan<int> NumberSpan => _numbers;
-
-    [GlobalSetup]
-    public void GlobalSetup()
-    {
-        _numbers = [.. Enumerable.Range(1, 100)];
-    }
+    private ReadOnlySpan<int> Numbers => _numbers;
 
     [Benchmark]
     public void CreateIntStackCollection()
     {
-        _ = StackCollection.Create(NumberSpan);
+        _ = StackCollection.Create(Numbers);
     }
 
     [Benchmark]
     public void CreateIntReadOnlySpan()
     {
-        ReadOnlySpan<int> _ = [.. NumberSpan];
+        ReadOnlySpan<int> _ = [.. _numbers];
     }
 
     [Benchmark]
     public void CreateIntSpan()
     {
-        Span<int> _ = [.. NumberSpan];
+        Span<int> _ = [.. _numbers];
     }
 
     [Benchmark]
     public void CreateIntList()
     {
-        List<int> _ = [.. NumberSpan];
+        List<int> _ = [.. _numbers];
     }
 
     [Benchmark]
     public void CreateIntArray()
     {
-        int[] _ = [.. NumberSpan];
+        int[] _ = [.. _numbers];
     }
 }

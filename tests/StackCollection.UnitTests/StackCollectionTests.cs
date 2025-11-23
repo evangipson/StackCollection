@@ -5,7 +5,7 @@ public class StackCollectionTests
     [Fact]
     public void StackCollection_ShouldCreateEmptyStackCollection()
     {
-        StackCollection<int> collection = new(capacity: 0);
+        StackCollection<int> collection = new();
 
         Assert.Equal(0, collection.Length);
         Assert.Equal(0, collection.Capacity);
@@ -26,8 +26,8 @@ public class StackCollectionTests
     [Fact]
     public void StackCollection_ShouldCreateFromPrimitiveParams()
     {
-        var first = 1;
-        StackCollection<int> collection = new(ref first, capacity: 3);
+        int reference = 0;
+        StackCollection<int> collection = new(ref reference, capacity: 3);
         collection.Add(1);
         collection.Add(2);
         collection.Add(3);
@@ -44,6 +44,7 @@ public class StackCollectionTests
     {
         var now = DateTime.UtcNow;
         var yesterday = now.AddDays(-1);
+
         StackCollection<DateTime> collection = new(ref now, capacity: 2);
         collection.Add(now);
         collection.Add(yesterday);
@@ -57,8 +58,8 @@ public class StackCollectionTests
     [Fact]
     public void StackCollection_ShouldCreateSingleElementCollection_UsingRefStruct()
     {
-        SomeStruct first = new(1);
-        StackCollection<SomeStruct> collection = new(ref first, capacity: 1);
+        SomeStruct reference = new();
+        StackCollection<SomeStruct> collection = new(ref reference, capacity: 1);
         collection.Add(new(1));
 
         Assert.Equal(1, collection.Length);
@@ -69,8 +70,8 @@ public class StackCollectionTests
     [Fact]
     public void StackCollection_ShouldCreateMultipleElementCollection_UsingRefStruct()
     {
-        SomeStruct first = new(1);
-        StackCollection<SomeStruct> collection = new(ref first, capacity: 3);
+        SomeStruct reference = new();
+        StackCollection<SomeStruct> collection = new(ref reference, capacity: 3);
         collection.Add(new(1));
         collection.Add(new(2));
         collection.Add(new(3));
