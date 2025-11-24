@@ -29,9 +29,9 @@ public class StackCollectionExtensionsTests
     public void Where_ShouldFilterPrimitiveStackCollection()
     {
         var collection = StackCollection.Create([1, 2, 3, 4, 5]);
-        var resultCollection = collection.CreateResultsOf([0]);
+        var whereResults = collection.CreateResults([0]);
 
-        var result = collection.Where(ref resultCollection, x => x < 3);
+        var result = collection.Where(x => x < 3).ToStackCollection(ref whereResults);
 
         Assert.Equal(2, result.Length);
         Assert.True(result[0] < 3);
@@ -42,11 +42,27 @@ public class StackCollectionExtensionsTests
     public void Select_ShouldCreateNewPrimitiveStackCollection()
     {
         var collection = StackCollection.Create([1, 2, 3, 4, 5]);
-        var selectCollection = collection.CreateResultsOf([false]);
+        var selectResults = collection.CreateResultsOf([false]);
 
-        var result = collection.Select(ref selectCollection, x => x < 3);
+        var result = collection.Select(x => x < 3).ToStackCollection(ref selectResults);
 
         Assert.Equal(5, result.Length);
+    }
+
+    [Fact]
+    public void ChainedQueries_ShouldCreateNewPrimitiveStackCollection()
+    {
+        var collection = StackCollection.Create([1, 2, 3, 4, 5]);
+        var chainedResults = collection.CreateResultsOf(["yo"]);
+
+        var result = collection.Where(x => x < 4)
+            .Select(x => $"{x:c}")
+            .ToStackCollection(ref chainedResults);
+
+        Assert.Equal(3, result.Length);
+        Assert.Equal("$1.00", result[0]);
+        Assert.Equal("$2.00", result[1]);
+        Assert.Equal("$3.00", result[2]);
     }
 
     [Fact]

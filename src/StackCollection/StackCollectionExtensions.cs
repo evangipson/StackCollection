@@ -1,5 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using StackCollection.Iterators;
+using StackCollection.Queries;
 
 namespace StackCollection;
 
@@ -81,83 +84,35 @@ public static class StackCollection
         }
 
         /// <summary>
-        /// Filters a stack collection for any that return <see langword="true"/> from <paramref name="predicate"/>.
+        /// Filters a stack collection using the provided <paramref name="predicate"/>, returning a deferred query.
+        /// Execution is deferred until <see cref="Query{T, T, TQuery}.ToStackCollection"/> is called.
         /// </summary>
-        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
         /// <param name="predicate">Returns <see langword="true"/> when the element should be included.</param>
-        /// <returns>The modified <paramref name="results"/> collection.</returns>
+        /// <returns>A deferred <see cref="Query{T, T, TQuery}"/> for chaining.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref StackCollection<T> Where(ref StackCollection<T> results, Func<T, bool>? predicate = null)
+        public Query<T, T, T, WhereIterator<T, SourceIterator<T>>> Where(Func<T, bool> predicate)
         {
-            // clear any results in case of fluent chaining
-            results.Clear();
-
-            // if there is no elements in the collection, no capacity for results,
-            // or no predicate, there is nothing to do
-            if (stackCollection.Length == 0 || results.Capacity == 0 || predicate == null)
-            {
-                return ref results;
-            }
-
-            // iterate once and add the elements that pass the predicate
-            foreach (var element in stackCollection)
-            {
-                if (predicate(element))
-                {
-                    results.Add(element);
-                }
-            }
-
-            return ref results;
+            SourceIterator<T> sourceIterator = new(stackCollection);
+            WhereIterator<T, SourceIterator<T>> whereIterator = new(ref Unsafe.AsRef(in sourceIterator), predicate);
+            return new(whereIterator);
         }
 
         /// <summary>
-        /// Selects elements in a stack collection using <paramref name="predicate"/>.
-        /// <para>
-        /// Returns the unmodified stack collection if <paramref name="predicate"/> is <see langword="null"/>.
-        /// </para>
-        /// </summary>
-        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
-        /// <param name="predicate">
-        /// Returns <typeparamref name="T"/> using the incoming <typeparamref name="T"/> element.
-        /// </param>
-        /// <returns>The modified <paramref name="results"/> collection.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref StackCollection<T> Select(ref StackCollection<T> results, Func<T, T?>? predicate = null)
-            => ref stackCollection.Select<T, T>(ref results, predicate);
-
-        /// <summary>
-        /// Selects elements in a stack collection using <paramref name="predicate"/>.
+        /// Selects elements in a stack collection using <paramref name="selector"/>, returning a deferred query.
+        /// Execution is deferred until <see cref="Query{T, TDest, TQuery}.ToStackCollection"/> is called.
         /// </summary>
         /// <typeparam name="TDest">The type of elements in the output stack collection.</typeparam>
-        /// <param name="results">The consumer-allocated stack collection where the results are stored.</param>
-        /// <param name="predicate">
-        /// Returns <typeparamref name="TDest"/> using the incoming <typeparamref name="TSource"/> element.
+        /// <param name="selector">
+        /// Returns <typeparamref name="TDest"/> using the incoming <typeparamref name="T"/> element.
         /// </param>
-        /// <returns>The modified <paramref name="results"/> collection.</returns>
+        /// <returns>A deferred <see cref="Query{T, TDest, TQuery}"/> for chaining.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref StackCollection<TDest> Select<TDest>(ref StackCollection<TDest> results, Func<T, TDest?>? predicate = null) where TDest : allows ref struct
+        public Query<T, TDest, TDest, SelectIterator<T, TDest, SourceIterator<T>>> Select<TDest>(Func<T, TDest?> selector)
+            where TDest : allows ref struct
         {
-            // clear any results in case of fluent chaining
-            results.Clear();
-
-            // if there is no elements in the collection, no capacity for results,
-            // or no predicate, there is nothing to do
-            if (stackCollection.Length == 0 || results.Capacity == 0 || predicate == null)
-            {
-                return ref results;
-            }
-
-            // iterate once to select the new elements
-            foreach (var element in stackCollection)
-            {
-                if (predicate(element) is TDest newElement)
-                {
-                    results.Add(newElement);
-                }
-            }
-
-            return ref results;
+            SourceIterator<T> sourceIterator = new(stackCollection);
+            SelectIterator<T, TDest, SourceIterator<T>> selectIterator = new(ref Unsafe.AsRef(in sourceIterator), selector);
+            return new(selectIterator);
         }
     }
 
