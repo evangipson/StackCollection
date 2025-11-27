@@ -225,4 +225,10 @@ public ref struct StackCollection<T> where T : allows ref struct
             return _index < _count;
         }
     }
+
+    /// <summary>
+    /// Returns a <see cref="string"/> with the name of the type and the number of elements.
+    /// </summary>
+    public override readonly string ToString()
+        => $"System.ReadOnlySpan<{typeof(T).Name}>[{_length}]";
 }

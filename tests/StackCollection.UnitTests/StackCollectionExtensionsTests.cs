@@ -53,16 +53,16 @@ public class StackCollectionExtensionsTests
     public void ChainedQueries_ShouldCreateNewPrimitiveStackCollection()
     {
         var collection = StackCollection.Create([1, 2, 3, 4, 5]);
-        var chainedResults = collection.CreateResultsOf(["yo"]);
+        var chainedResults = collection.CreateResultsOf([false]);
 
         var result = collection.Where(x => x < 4)
-            .Select(x => $"{x:c}")
+            .Select(x => x > 2)
             .ToStackCollection(ref chainedResults);
 
         Assert.Equal(3, result.Length);
-        Assert.Equal("$1.00", result[0]);
-        Assert.Equal("$2.00", result[1]);
-        Assert.Equal("$3.00", result[2]);
+        Assert.False(result[0]);
+        Assert.False(result[1]);
+        Assert.True(result[2]);
     }
 
     [Fact]
@@ -78,5 +78,17 @@ public class StackCollectionExtensionsTests
         Assert.Equal(1, result[0].Number);
         Assert.Equal(2, result[1].Number);
         Assert.Equal(3, result[2].Number);
+    }
+
+    [Fact]
+    public void Query_ShouldAllowForeachIteration()
+    {
+        var collection = StackCollection.Create([1, 2, 3, 4, 5]);
+
+        foreach(var x in collection.Where(x => x > 2))
+        {
+            Assert.IsType<int>(x);
+            Assert.False(x <= 2);
+        }
     }
 }

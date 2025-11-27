@@ -22,9 +22,10 @@ public readonly ref struct Query<TSource, TDest, TFinalDest, TState>(TState stat
     private readonly ref TState State => ref Unsafe.AsRef(in _state);
 
     /// <summary>
-    /// Continues the query chain with a Where (filtering) operation, the new element type remains <typeparamref name="TSource"/>.
+    /// Continues the query chain with a Where (filtering) operation, the new element type is <typeparamref name="TFinalDest"/>.
     /// </summary>
-    public readonly Query<TSource, TDest, TFinalDest, WhereIterator<TFinalDest, TState>> Where(Func<TFinalDest, bool> predicate)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Query<TSource, TDest, TFinalDest, WhereIterator<TFinalDest, TState>> Where(Func<TFinalDest, bool> predicate)
     {
         WhereIterator<TFinalDest, TState> whereIterator = new(ref State, predicate);
         return new(whereIterator);
@@ -34,7 +35,8 @@ public readonly ref struct Query<TSource, TDest, TFinalDest, TState>(TState stat
     /// Continues the query chain with a Select (projection) operation, changing the output type to <typeparamref name="TResult"/>.
     /// </summary>
     /// <typeparam name="TResult">The new output type of the query chain.</typeparam>
-    public readonly Query<TSource, TDest, TResult, SelectIterator<TFinalDest, TResult, TState>> Select<TResult>(Func<TFinalDest, TResult?> selector)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Query<TSource, TDest, TResult, SelectIterator<TFinalDest, TResult, TState>> Select<TResult>(Func<TFinalDest, TResult?> selector)
         where TResult : allows ref struct
     {
         SelectIterator<TFinalDest, TResult, TState> selectIterator = new(ref State, selector);
@@ -47,7 +49,7 @@ public readonly ref struct Query<TSource, TDest, TFinalDest, TState>(TState stat
     /// </summary>
     /// <param name="predicate">An optional predicate to filter elements.</param>
     /// <returns>
-    /// <see langword="true"/> if at least one element satisfies the condition; otherwise, <see langword="false"/>.
+    /// <see langword="true"/> if at least one element satisfies the condition, <see langword="false"/> otherwise.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly bool Any(Func<TFinalDest, bool>? predicate = null)
@@ -96,5 +98,43 @@ public readonly ref struct Query<TSource, TDest, TFinalDest, TState>(TState stat
         }
 
         return ref results;
+    }
+
+    /// <summary>
+    /// Gets the enumerator for this deferred query; required for the foreach pattern.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Enumerator GetEnumerator() => new(ref State);
+
+    /// <summary>
+    /// Enumerator struct for the Query, allowing foreach loop execution.
+    /// </summary>
+    public ref struct Enumerator
+    {
+        private readonly TState _state;
+        private TFinalDest _current;
+
+        private readonly ref TState State => ref Unsafe.AsRef(in _state);
+
+        public readonly ref TFinalDest Current => ref Unsafe.AsRef(in _current);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Enumerator(ref TState state)
+        {
+            _state = state;
+            _current = default!;
+        }
+
+        /// <summary>
+        /// Advances the enumerator to the next element of the query result.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            // call the static MoveNext on the final iterator type, passing the mutable state reference
+            return TState.MoveNext(ref State, out _current);
+        }
+
+        public readonly void Dispose() { }
     }
 }

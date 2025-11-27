@@ -49,7 +49,6 @@ public class StackCollectionQueryBenchmarks
     [Benchmark]
     public bool StackCollection_SelectWhereAnyQuery()
     {
-        var chainResults = Collection.CreateResults(Number);
         return Collection.Where(x => x > 500)
             .Select(x => x + 1)
             .Any(x => x > 499);
