@@ -42,6 +42,38 @@ public readonly ref struct Query<TSource, TDest, TFinalDest, TState>(TState stat
     }
 
     /// <summary>
+    /// Executes the deferred query pipeline and checks if any element exists that satisfies the optional predicate.
+    /// The execution stops on the first match.
+    /// </summary>
+    /// <param name="predicate">An optional predicate to filter elements.</param>
+    /// <returns>
+    /// <see langword="true"/> if at least one element satisfies the condition; otherwise, <see langword="false"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly bool Any(Func<TFinalDest, bool>? predicate = null)
+    {
+        // if no predicate, we just check if MoveNext produces any result
+        if (predicate == null)
+        {
+            // TState is the final iterator type (i.e.: WhereIterator or SelectIterator).
+            return TState.MoveNext(ref State, out _);
+        }
+
+        // execute the query, checking the predicate for each element produced
+        while (TState.MoveNext(ref State, out TFinalDest element))
+        {
+            // found a match, stop immediately
+            if (predicate(element))
+            {
+                return true;
+            }
+        }
+
+        // no elements matched the predicate
+        return false;
+    }
+
+    /// <summary>
     /// Executes the deferred query and writes the results to the specified destination collection.
     /// The result collection type MUST match the current query output type, <typeparamref name="TFinalDest"/>.
     /// </summary>

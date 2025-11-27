@@ -16,6 +16,12 @@ public class StackCollectionQueryBenchmarks
     private List<int> List => [.. Numbers];
 
     [Benchmark]
+    public bool StackCollection_AnyQuery()
+    {
+        return Collection.Any(x => x > 999);
+    }
+
+    [Benchmark]
     public StackCollection<int> StackCollection_SelectQuery()
     {
         var selectResults = Collection.CreateResults(Number);
@@ -32,12 +38,27 @@ public class StackCollectionQueryBenchmarks
     }
 
     [Benchmark]
-    public StackCollection<int> StackCollection_WhereSelectWhereQuery()
+    public StackCollection<int> StackCollection_WhereSelectQuery()
     {
         var chainResults = Collection.CreateResults(Number);
         return Collection.Where(x => x > 500)
             .Select(x => x + 1)
             .ToStackCollection(ref chainResults);
+    }
+
+    [Benchmark]
+    public bool StackCollection_SelectWhereAnyQuery()
+    {
+        var chainResults = Collection.CreateResults(Number);
+        return Collection.Where(x => x > 500)
+            .Select(x => x + 1)
+            .Any(x => x > 499);
+    }
+
+    [Benchmark]
+    public bool List_AnyQuery()
+    {
+        return List.Any(x => x > 999);
     }
 
     [Benchmark]
@@ -56,5 +77,13 @@ public class StackCollectionQueryBenchmarks
     public List<int> List_WhereSelectQuery()
     {
         return [.. List.Where(x => x > 500).Select(x => x + 1)];
+    }
+
+    [Benchmark]
+    public bool List_WhereSelectAnyQuery()
+    {
+        return List.Where(x => x > 500)
+            .Select(x => x + 1)
+            .Any(x => x > 499);
     }
 }
